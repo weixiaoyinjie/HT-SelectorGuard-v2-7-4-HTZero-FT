@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - '*.zip'
       - 'HT_SelectorGuard_v2_7_4_HTSort_FTPriceSeparated_OneUpload.zip'
       - 'HT_SelectorGuard_v2_7_2_DualColor_ZeroOdds_FTOnly_OneUpload.zip'
       - 'HT_SelectorGuard_v2_7_1_LowZero_FTExclusive_OneUpload.zip'
@@ -52,29 +53,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
-            echo "No unpacked Android project found; checking uploaded ZIP files."
-            shopt -s nullglob
-            archives=( *.zip )
-            if [ ${#archives[@]} -eq 0 ]; then
-              echo "::error::Neither Android source files nor a source ZIP were found in repository root. Upload extracted source files or the complete ZIP."
-              exit 1
-            fi
-            if [ ${#archives[@]} -ne 1 ]; then
-              echo "::error::Multiple ZIP files detected; please keep only one source ZIP in the repository root."
-              printf '%s\n' "${archives[@]}"
-              exit 1
-            fi
-            echo "Extracting ${archives[0]}"
-            unzip -oq "${archives[0]}"
-            if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
-              echo "::error::ZIP was extracted, but settings.gradle is missing from root. Upload a source ZIP without an extra parent directory."
-              exit 1
-            fi
+          if [ -f settings.gradle ] || [ -f settings.gradle.kts ]; then
+            echo "Android source already present; no extraction needed."
           else
-            echo "Complete source tree detected; ZIP extraction skipped."
+            python3 - <<'PYZIP'
+          from pathlib import Path
+          import zipfile, shutil, sys
+          root = Path.cwd()
+          archives = sorted(root.glob('*.zip'))
+          if not archives:
+              sys.exit('::error::No Android source and no ZIP found in repository root.')
+          priority = ['HT_SelectorGuard_v2_7_4_BuildFix_OneUpload.zip',
+                      'HT_SelectorGuard_v2_7_4_NewRepo_Ready.zip',
+                      'HT_SelectorGuard_v2_7_4_HTSort_FTPriceSeparated_OneUpload.zip']
+          candidates = sorted(archives, key=lambda p: (priority.index(p.name) if p.name in priority else len(priority), -p.stat().st_mtime, p.name))
+          chosen = None
+          for p in candidates:
+              try:
+                  with zipfile.ZipFile(p) as z:
+                      names = z.namelist()
+                      roots = [n for n in names if n.endswith(('settings.gradle', 'settings.gradle.kts')) and not n.startswith('__MACOSX/')]
+                      if roots:
+                          chosen = (p, min(roots, key=lambda x: x.count('/')).rsplit('/', 1)[0] + '/' if '/' in min(roots, key=lambda x: x.count('/')) else '')
+                          break
+              except zipfile.BadZipFile:
+                  print(f'Ignoring invalid ZIP: {p.name}')
+          if chosen is None:
+              sys.exit('::error::No ZIP contains settings.gradle or settings.gradle.kts.')
+          archive, prefix = chosen
+          print(f'Using source archive: {archive.name} (source prefix: {prefix or "root"})')
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  name = info.filename
+                  if not name.startswith(prefix):
+                      continue
+                  relative = name[len(prefix):]
+                  if not relative or info.is_dir():
+                      continue
+                  dest = (root / relative).resolve()
+                  if not dest.is_relative_to(root):
+                      sys.exit(f'::error::Unsafe ZIP entry: {name}')
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  with z.open(info) as src, dest.open('wb') as out:
+                      shutil.copyfileobj(src, out)
+          PYZIP
           fi
           required=(
+            settings.gradle
             app/src/main/java/com/htlive/monitor/Watch8CompanionPayload.java
             wear/src/main/java/com/htlive/watch44/WearAlertActivity.java
             wear/src/main/java/com/htlive/watch44/WatchHomeActivity.java

@@ -63,7 +63,8 @@ jobs:
           archives = sorted(root.glob('*.zip'))
           if not archives:
               sys.exit('::error::No Android source and no ZIP found in repository root.')
-          priority = ['HT_SelectorGuard_v2_7_4_BuildFix_OneUpload.zip',
+          priority = ['HT_SelectorGuard_v2_7_4_OCRTestFix_OneUpload.zip',
+                      'HT_SelectorGuard_v2_7_4_BuildFix_OneUpload.zip',
                       'HT_SelectorGuard_v2_7_4_NewRepo_Ready.zip',
                       'HT_SelectorGuard_v2_7_4_HTSort_FTPriceSeparated_OneUpload.zip']
           candidates = sorted(archives, key=lambda p: (priority.index(p.name) if p.name in priority else len(priority), -p.stat().st_mtime, p.name))

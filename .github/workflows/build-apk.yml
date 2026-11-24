@@ -48,67 +48,55 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Unpack full source if ZIP was uploaded
+      - name: Locate source and validate project files
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f HT_SelectorGuard_v2_7_4_HTSort_FTPriceSeparated_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_7_4_HTSort_FTPriceSeparated_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_7_2_DualColor_ZeroOdds_FTOnly_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_7_2_DualColor_ZeroOdds_FTOnly_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_7_1_LowZero_FTExclusive_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_7_1_LowZero_FTExclusive_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_7_HTOnly_PerMatchFT_Manual123_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_7_HTOnly_PerMatchFT_Manual123_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_6_Notification_DirectMatch_Fix_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_6_Notification_DirectMatch_Fix_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_5_Responsive_FT_Odds_DeepLink_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_5_Responsive_FT_Odds_DeepLink_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_4_AllGrades_ManualMonitor_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_4_AllGrades_ManualMonitor_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_3_CandidateAlert_Persist_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_3_CandidateAlert_Persist_OneUpload.zip
-          elif [ -f HT_SelectorGuard_v2_2_FT_LowScore_60_75_85_NewRepo.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_2_FT_LowScore_60_75_85_NewRepo.zip
-          elif [ -f HT_SelectorGuard_v2_0_HT_FT_ThreeMinute_NewRepo.zip ]; then
-            unzip -oq HT_SelectorGuard_v2_0_HT_FT_ThreeMinute_NewRepo.zip
-          elif [ -f HT_SelectorGuard_v1_9_NewRepo_Complete.zip ]; then
-            unzip -oq HT_SelectorGuard_v1_9_NewRepo_Complete.zip
-          elif [ -f HT_SelectorGuard_Integrated_v1_9_ThreeMinute_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_Integrated_v1_9_ThreeMinute_OneUpload.zip
-          elif [ -f Watch8_ScorePath_ROUND_v3_8_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_ROUND_v3_8_OneUpload.zip
-          elif [ -f HT_SelectorGuard_Integrated_v1_8_OneUpload.zip ]; then
-            unzip -oq HT_SelectorGuard_Integrated_v1_8_OneUpload.zip
-          elif [ -f Watch8_ScorePath_RELIABLE_v3_7_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_RELIABLE_v3_7_OneUpload.zip
-          elif [ -f Watch8_ScorePath_SYNC_v3_6_PHONE_PARITY_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_SYNC_v3_6_PHONE_PARITY_OneUpload.zip
-          elif [ -f Watch8_ScorePath_SYNC_v3_5_1_BUILD_FIX_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_SYNC_v3_5_1_BUILD_FIX_OneUpload.zip
-          elif [ -f Watch8_ScorePath_SYNC_v3_5_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_SYNC_v3_5_OneUpload.zip
-          elif [ -f Watch8_ScorePath_MultiMatch_FIX_v3_4_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_MultiMatch_FIX_v3_4_OneUpload.zip
-          elif [ -f Watch8_ScorePath_44mm_STARTUP_FIX_v3_3_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_44mm_STARTUP_FIX_v3_3_OneUpload.zip
-          elif [ -f Watch8_ScorePath_44mm_REPAIRED_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_44mm_REPAIRED_OneUpload.zip
-          elif [ -f Watch8_ScorePath_44mm_OneUpload.zip ]; then
-            unzip -oq Watch8_ScorePath_44mm_OneUpload.zip
+          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
+            echo "No unpacked Android project found; checking uploaded ZIP files."
+            shopt -s nullglob
+            archives=( *.zip )
+            if [ ${#archives[@]} -eq 0 ]; then
+              echo "::error::Neither Android source files nor a source ZIP were found in repository root. Upload extracted source files or the complete ZIP."
+              exit 1
+            fi
+            if [ ${#archives[@]} -ne 1 ]; then
+              echo "::error::Multiple ZIP files detected; please keep only one source ZIP in the repository root."
+              printf '%s\n' "${archives[@]}"
+              exit 1
+            fi
+            echo "Extracting ${archives[0]}"
+            unzip -oq "${archives[0]}"
+            if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
+              echo "::error::ZIP was extracted, but settings.gradle is missing from root. Upload a source ZIP without an extra parent directory."
+              exit 1
+            fi
+          else
+            echo "Complete source tree detected; ZIP extraction skipped."
           fi
-          test -f app/src/main/java/com/htlive/monitor/Watch8CompanionPayload.java
-          test -f wear/src/main/java/com/htlive/watch44/WearAlertActivity.java
-          test -f wear/src/main/java/com/htlive/watch44/WatchHomeActivity.java
-          test -f wear/src/main/java/com/htlive/watch44/WearConnectionProbe.java
-          test -f wear/src/main/java/com/htlive/watch44/WearAlertListener.java
-          test -f wear/src/main/java/com/htlive/watch44/WearBrief.java
-          test -f wear/src/main/java/com/htlive/watch44/WatchGlanceView.java
-          test -f signing/watch8-development.jks
-          test -f app/src/main/assets/selector.html
-          test -f app/src/main/java/com/htlive/monitor/SelectorStartPolicy.java
-          test -f app/src/main/java/com/htlive/monitor/SelectorMonitorSync.java
-          test -f app/src/main/java/com/htlive/monitor/SelectorActivity.java
+          required=(
+            app/src/main/java/com/htlive/monitor/Watch8CompanionPayload.java
+            wear/src/main/java/com/htlive/watch44/WearAlertActivity.java
+            wear/src/main/java/com/htlive/watch44/WatchHomeActivity.java
+            wear/src/main/java/com/htlive/watch44/WearConnectionProbe.java
+            wear/src/main/java/com/htlive/watch44/WearAlertListener.java
+            wear/src/main/java/com/htlive/watch44/WearBrief.java
+            wear/src/main/java/com/htlive/watch44/WatchGlanceView.java
+            signing/watch8-development.jks
+            app/src/main/assets/selector.html
+            app/src/main/java/com/htlive/monitor/SelectorStartPolicy.java
+            app/src/main/java/com/htlive/monitor/SelectorMonitorSync.java
+            app/src/main/java/com/htlive/monitor/SelectorActivity.java
+          )
+          missing=0
+          for path in "${required[@]}"; do
+            if [ ! -f "$path" ]; then
+              echo "::error::Missing required source file: $path"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "Source verification passed."
       - name: Android SDK 35
         shell: bash
         run: |
